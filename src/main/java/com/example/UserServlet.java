@@ -6,7 +6,7 @@ import java.io.*;
 import java.sql.*;
 
 public class UserServlet extends HttpServlet {
-    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/vamsi";
+    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/vamsi?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
     private static final String JDBC_USERNAME = "root";
     private static final String JDBC_PASSWORD = "Swathi$02";
 
@@ -14,27 +14,35 @@ public class UserServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("text/html");
 
-        try (Connection conn = DriverManager.getConnection(JDBC_URL, JDBC_USERNAME, JDBC_PASSWORD)) {
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT * FROM users");
+        try {
+            // **Load MySQL JDBC Driver**
+            Class.forName("com.mysql.cj.jdbc.Driver");
 
-            PrintWriter out = response.getWriter();
-            out.println("<html><body><h1>Users List</h1><table>");
-            out.println("<tr><th>ID</th><th>Name</th><th>Email</th></tr>");
-            while (rs.next()) {
-                out.println("<tr><td>" + rs.getInt("id") + "</td><td>" + rs.getString("name") + "</td><td>" + rs.getString("email") + "</td></tr>");
+            try (Connection conn = DriverManager.getConnection(JDBC_URL, JDBC_USERNAME, JDBC_PASSWORD)) {
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT * FROM users");
+
+                PrintWriter out = response.getWriter();
+                out.println("<html><body><h1>Users List</h1><table>");
+                out.println("<tr><th>ID</th><th>Name</th><th>Email</th></tr>");
+                while (rs.next()) {
+                    out.println("<tr><td>" + rs.getInt("id") + "</td><td>" + rs.getString("name") + "</td><td>" + rs.getString("email") + "</td></tr>");
+                }
+                out.println("</table>");
+                out.println("<h2>Add New User</h2>");
+                out.println("<form action='users' method='POST'>");
+                out.println("Name: <input type='text' name='name'><br>");
+                out.println("Email: <input type='email' name='email'><br>");
+                out.println("<input type='submit' value='Add User'>");
+                out.println("</form>");
+                out.println("</body></html>");
             }
-            out.println("</table>");
-            out.println("<h2>Add New User</h2>");
-            out.println("<form action='users' method='POST'>");
-            out.println("Name: <input type='text' name='name'><br>");
-            out.println("Email: <input type='email' name='email'><br>");
-            out.println("<input type='submit' value='Add User'>");
-            out.println("</form>");
-            out.println("</body></html>");
-        } catch (SQLException e) {
+        } catch (ClassNotFoundException e) {
+            response.getWriter().println("<p>MySQL JDBC Driver not found!</p>");
             e.printStackTrace();
+        } catch (SQLException e) {
             response.getWriter().println("<p>Error: " + e.getMessage() + "</p>");
+            e.printStackTrace();
         }
     }
 
@@ -44,24 +52,33 @@ public class UserServlet extends HttpServlet {
         String email = request.getParameter("email");
 
         if (name != null && !name.isEmpty() && email != null && !email.isEmpty()) {
-            try (Connection conn = DriverManager.getConnection(JDBC_URL, JDBC_USERNAME, JDBC_PASSWORD)) {
-                String query = "INSERT INTO users (name, email) VALUES (?, ?)";
-                try (PreparedStatement stmt = conn.prepareStatement(query)) {
-                    stmt.setString(1, name);
-                    stmt.setString(2, email);
-                    int rowsAffected = stmt.executeUpdate();
-                    if (rowsAffected > 0) {
-                        response.sendRedirect("users");
-                    } else {
-                        response.getWriter().println("<p>Error adding user.</p>");
+            try {
+                // **Load MySQL JDBC Driver**
+                Class.forName("com.mysql.cj.jdbc.Driver");
+
+                try (Connection conn = DriverManager.getConnection(JDBC_URL, JDBC_USERNAME, JDBC_PASSWORD)) {
+                    String query = "INSERT INTO users (name, email) VALUES (?, ?)";
+                    try (PreparedStatement stmt = conn.prepareStatement(query)) {
+                        stmt.setString(1, name);
+                        stmt.setString(2, email);
+                        int rowsAffected = stmt.executeUpdate();
+                        if (rowsAffected > 0) {
+                            response.sendRedirect("users");
+                        } else {
+                            response.getWriter().println("<p>Error adding user.</p>");
+                        }
                     }
                 }
-            } catch (SQLException e) {
+            } catch (ClassNotFoundException e) {
+                response.getWriter().println("<p>MySQL JDBC Driver not found!</p>");
                 e.printStackTrace();
+            } catch (SQLException e) {
                 response.getWriter().println("<p>Error: " + e.getMessage() + "</p>");
+                e.printStackTrace();
             }
         } else {
             response.getWriter().println("<p>Both name and email are required.</p>");
         }
     }
 }
+
